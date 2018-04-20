@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{ title }}</title>
+    {{> head }}
+  </head>
+  <body ng-app='indexApp' ng-controller='indexController'>
+    <header>{{> header }}</header>
+    <div class='container-fluid'>
+      <div class='jumbotron'>
+        <h3 class='text-center'>Upload a Pudl to Log In</h3>
+        <div class='well text-center'>
+          <div class='container-fluid'>
+            <img class='container' ng-src='{% pudlPreview %}' style='height:400px;width:auto'>
+          </div>
+          <label class='btn btn-primary text-center' style='margin:10px;'>
+            Browse <input type='file' name='pudlImage' accept='image/*' onchange="angular.element(this).scope().pudlChanged(this.files)" hidden>
+          </label>
+          <button type='button' class='btn btn-primary' id='pudlSubmit' ng-disabled='!pudlSubmit' ng-click='pudlCheck()'>Submit</button>
+        </div>
+        <div class="progress" ng-show='pudlUploading'>
+          <div class="progress-bar progress-bar-striped active" role="progressbar"
+               aria-valuenow="{% percentCompleted %}" aria-valuemin="0" aria-valuemax="100" style="width:{% percentCompleted %}%">{% percentCompleted %} %
+
+          </div>
+        </div>
+        <div class='container-fluid text-center' ng-show='pudlAnalysing'>
+          <div class="spinner">
+            <div class="double-bounce1"></div>
+            <div class="double-bounce2"></div>
+          </div>
+          <h3 style='display:inline-block;'>Analysing Image...</h3>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+
+
+      var indexApp = angular.module('indexApp', [], function($interpolateProvider) {
+          $interpolateProvider.startSymbol('{%');
+          $interpolateProvider.endSymbol('%}');
+      });
+
+      indexApp.controller('indexController', function($scope, $http, $window, $location, $timeout) {
+          $scope.pudlSelected = false;
+
+          $scope.pudlChanged = function(files) {
+              $scope.pudlUploading = false;
+              $scope.pudlAnalysing = false;
+
+              var file = files[0];
+
+              var reader = new FileReader();
+
+              reader.onload = function(e) {
+                  $scope.pudlPreview = e.target.result;
+                  $scope.$apply();
+              }
+
+              reader.readAsDataURL(file);
+
+              $scope.pudlSubmit = true;
+              $scope.pudlFile = file;
+
+          }
+
+          $scope.pudlCheck = function() {
+
+              $scope.pudlSubmit = false;
+
+              var form = new FormData();
+              var xhr = new XMLHttpRequest;
+
+              form.append('pudlImage', $scope.pudlFile);
+
+              xhr.upload.onprogress = function(e) {
+                  // Event listener for when the file is uploading
+                  $scope.pudlUploading = true;
+
+                  $scope.$apply(function() {
+                      if (e.lengthComputable) {
+                          $scope.percentCompleted = Math.round(e.loaded / e.total * 100);
+                      }
+
+                      if ($scope.percentCompleted == 100) {
+                          $scope.pudlAnalysing = true;
+                      }
+                  });
+              };
+
+              xhr.upload.onload = function(e) {
+                  // Event listener for when the file completed uploading
+              };
+
+              xhr.onreadystatechange = function() {
+                  if (xhr.readyState === 4 && xhr.status == 200) {
+                      if (xhr.response == 'success') {
+                          $window.open('/exclusivepage', '_self');
+                      } else {
+                          $window.alert(xhr.response);
+                      }
+                  }
+              }
+
+              xhr.open('POST', '/checkImage');
+              xhr.send(form);
+          }
+
+      });
+
+      indexApp.directive('file', function() {
+          return {
+              require:"ngModel",
+              restrict: 'A',
+              link: function($scope, el, attrs, ngModel){
+                  el.bind('change', function(event){
+                      var files = event.target.files;
+                      var file = files[0];
+
+                      ngModel.$setViewValue(file);
+                      $scope.$apply();
+                  });
+              }
+          };
+      });
+
+      indexApp.directive("fileread", [function () {
+          return {
+              scope: {
+                  fileread: "="
+              },
+              link: function (scope, element, attributes) {
+                  element.bind("change", function (changeEvent) {
+                      scope.$apply(function () {
+                          scope.fileread = changeEvent.target.files[0];
+                      });
+                  });
+              }
+          }
+      }]);
+
+  </script>
+</html>
